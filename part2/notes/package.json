@@ -38,5 +38,8 @@
 	"resolutions": {
 		"mini-css-extract-plugin": "2.4.5"
 	},
-  "proxy": "http://localhost:3001"
+	"proxy": "http://localhost:3001",
+	"devDependencies": {
+		"eslint": "^8.20.0"
+	}
 }

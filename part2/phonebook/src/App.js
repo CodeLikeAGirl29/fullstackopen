@@ -1,32 +1,27 @@
-import React, { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import Search from "./components/Search";
-import Form from "./components/Form";
-import Layout from "./components/Layout";
 import Notification from "./components/Notification";
-import personService from "./services/phonebook.js";
+import Form from "./components/Form";
+import Persons from "./components/Person";
+import personsService from "./services/persons";
 
 const App = () => {
 	const [persons, setPersons] = useState([]);
 	const [newName, setNewName] = useState("");
-	const [newNumber, setNewNumber] = useState("Enter number");
+	const [newNumber, setNewNumber] = useState("");
 	const [filter, setFilter] = useState("");
-	const [notification, setNotification] = useState({
-		message: null,
-		type: null,
-	});
+	const [successMessage, setSuccessMessage] = useState(null);
+	const [errorMessage, setErrorMessage] = useState(null);
 
 	useEffect(() => {
-		personService.getAll().then((initialPersons) => {
-			setPersons(initialPersons);
+		personsService.getAll().then((response) => {
+			setPersons(response.data);
 		});
 	}, []);
-	const personsToShow = persons.filter(
-		(person) => person.name.toUpperCase().search(filter.toUpperCase()) !== -1
-	);
 
-	const handleFilterChange = (event) => {
-		setFilter(event.target.value);
-	};
+	const filteredPersons = persons.filter((person) =>
+		person.name.toLowerCase().includes(filter.toLowerCase())
+	);
 
 	const handleNameChange = (event) => {
 		setNewName(event.target.value);
@@ -36,107 +31,112 @@ const App = () => {
 		setNewNumber(event.target.value);
 	};
 
-	const addPerson = (event) => {
-		event.preventDefault();
-		let existingPersonIndex = persons.findIndex((e) => e.name === newName);
-		if (existingPersonIndex !== -1) {
-			const updatedPerson = {
-				name: newName,
-				number: newNumber,
-				date: new Date(),
-			};
-			if (
-				window.confirm(
-					`${updatedPerson.name} is already added to the Phonebook. Replace the old number with a new one ?`
-				)
-			) {
-				personService
-					.update(updatedPerson, persons[existingPersonIndex].id)
-					.then((returnedPerson) => {
-						setPersons(
-							persons.map((person) =>
-								person.id !== persons[existingPersonIndex].id
-									? person
-									: returnedPerson
-							)
-						);
-						setNotification({
-							message: `Updated ${returnedPerson.name}`,
-							type: "success",
-						});
-						setTimeout(() => {
-							setNotification({ message: null, type: null });
-						}, 5000);
-					})
-					.catch((error) => {
-						setNotification({
-							message: error.response.data.error,
-							type: "error",
-						});
-						setTimeout(() => {
-							setNotification({ message: null, type: null });
-						}, 5000);
-					});
-				setNewName("");
-				setNewNumber("");
-			}
-		} else if (persons.some((e) => e.number === newNumber)) {
-			window.alert(`${newNumber} is already added to phonebook`);
-		} else {
-			const newPerson = {
-				name: newName,
-				number: newNumber,
-				date: new Date(),
-			};
-			personService
-				.create(newPerson)
-				.then((returnedPerson) => {
-					setPersons(persons.concat(returnedPerson));
-					setNotification({
-						message: `Added ${returnedPerson.name}`,
-						type: "success",
-					});
-					setTimeout(() => {
-						setNotification({ message: null, type: null });
-					}, 5000);
-				})
-				.catch((error) => {
-					setNotification({
-						message: error.response.data.error,
-						type: "error",
-					});
-					setTimeout(() => {
-						setNotification({ message: null, type: null });
-					}, 5000);
-				});
-			setNewName("");
-			setNewNumber("");
-		}
+	const handleFilter = (event) => {
+		setFilter(event.target.value);
 	};
 
-	const deletePerson = (id) => {
-		let personToDelete = persons.filter((person) => person.id === id);
-		if (window.confirm("Delete " + personToDelete[0].name + " ?")) {
-			personService.deleteObject(id).then(() => {
-				setPersons(persons.filter((person) => person.id !== id));
+	const showSuccessMessage = (message) => {
+		setSuccessMessage(message);
+		setTimeout(() => {
+			setSuccessMessage(null);
+		}, 3000);
+	};
+
+	const updateUser = (id, newPerson) => {
+		personsService
+			.update(id, newPerson)
+			.then((response) => {
+				setPersons(
+					persons.map((person) => (person.id !== id ? person : response.data))
+				);
+				setNewName("");
+				setNewNumber("");
+				showSuccessMessage(`Updated ${response.data.name}`);
+			})
+			.catch((error) => {
+				setErrorMessage(error.response.data.error);
+				setTimeout(() => {
+					setErrorMessage(null);
+				}, 3000);
 			});
+	};
+
+	const addPerson = (event) => {
+		event.preventDefault();
+		if (newName.trim() === "" || newNumber.trim() === "") {
+			return;
 		}
+		const personObject = {
+			name: newName.trim(),
+			number: newNumber.trim(),
+		};
+
+		const isPersonExist = persons.find(
+			(person) => person.name === newName.trim()
+		);
+
+		if (isPersonExist) {
+			if (
+				window.confirm(
+					`${newName} is already added to phonebook, replace old number with a new one?`
+				)
+			) {
+				updateUser(isPersonExist.id, personObject);
+			}
+			return;
+		}
+
+		personsService
+			.create(personObject)
+			.then((response) => {
+				setPersons([...persons, response.data]);
+				setNewName("");
+				setNewNumber("");
+				showSuccessMessage(`Added ${response.data.name}`);
+			})
+			.catch((error) => {
+				setErrorMessage(error.response.data.error);
+				setTimeout(() => {
+					setErrorMessage(null);
+				}, 3000);
+			});
+	};
+
+	const deletePerson = (removedPerson) => {
+		personsService
+			.remove(removedPerson.id)
+			.then(() => {
+				setPersons(persons.filter((person) => person.id !== removedPerson.id));
+			})
+			.catch(() => {
+				setPersons(persons.filter((person) => person.id !== removedPerson.id));
+				setErrorMessage(
+					`Information of ${removedPerson.name} has already been removed from server`
+				);
+				setTimeout(() => {
+					setErrorMessage(null);
+				}, 3000);
+			});
 	};
 
 	return (
 		<div>
-			<h2>Phonebook</h2>
-			<Notification notification={notification} />
-			<Search filter={filter} handleFilterChange={handleFilterChange} />
-			<h2>Add a new entry</h2>
+			<h2>My Phonebook</h2>
+			<Notification message={successMessage} variant='success' />
+			<Notification message={errorMessage} variant='error' />
+			<Search filter={filter} handleFilter={handleFilter} />
+
+			<h3>Add a new</h3>
 			<Form
 				addPerson={addPerson}
 				newName={newName}
-				newNumber={newNumber}
 				handleNameChange={handleNameChange}
+				newNumber={newNumber}
 				handleNumberChange={handleNumberChange}
 			/>
-			<Layout persons={personsToShow} deletePerson={deletePerson} />
+
+			<h3>Numbers</h3>
+			<Person persons={filteredPersons} deletePerson={deletePerson} />
 		</div>
 	);
 };

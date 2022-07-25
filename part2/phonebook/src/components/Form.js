@@ -3,41 +3,21 @@ import React from "react";
 const Form = ({
 	addPerson,
 	newName,
-	newNumber,
 	handleNameChange,
+	newNumber,
 	handleNumberChange,
 }) => {
 	return (
 		<form onSubmit={addPerson}>
-			<div class='grid-container'>
-				<div class='grid-x grid-padding-x'>
-					<div class='medium-6 cell'>
-						<label>
-							Name:
-							<input
-								type='text'
-								value={newName}
-								onChange={handleNameChange}
-								placeholder='Name'
-							/>
-						</label>
-					</div>
-					<div class='medium-6 cell'>
-						<label>
-							Number:
-							<input
-								type='number'
-								value={newNumber}
-								onChange={handleNumberChange}
-								placeholder='Number'
-							/>
-						</label>
-					</div>
-				</div>
+			<div>
+				name: <input value={newName} onChange={handleNameChange} />
 			</div>
-			<button class='hollow button primary' type='submit'>
-				Add
-			</button>
+			<div>
+				number: <input value={newNumber} onChange={handleNumberChange} />
+			</div>
+			<div>
+				<button type='submit'>add</button>
+			</div>
 		</form>
 	);
 };
