@@ -15,27 +15,6 @@ export const ALL_BOOKS = gql`
 	}
 `;
 
-const BOOK_DETAILS = gql`
-	fragment BookDetails on Book {
-		title
-		published
-		genres
-		author {
-			name
-			born
-		}
-	}
-`;
-
-export const BOOK_ADDED = gql`
-	subscription {
-		bookAdded {
-			...BookDetails
-		}
-	}
-	${BOOK_DETAILS}
-`;
-
 const Books = (props) => {
 	const result = useQuery(ALL_BOOKS);
 	const [genre, setGenre] = useState(null);

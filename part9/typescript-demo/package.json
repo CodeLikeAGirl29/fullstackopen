@@ -1,0 +1,28 @@
+{
+	"name": "typescript-demo",
+	"version": "1.0.0",
+	"description": "fullstackopen part9 typescript",
+	"scripts": {
+		"start": "ts-node index.ts",
+		"ts-node": "ts-node",
+		"multiply": "ts-node ./src/multiplier.ts",
+		"calculate": "ts-node .src/calculator.ts",
+		"calcBmi": "ts-node ./src/calculateBmi.ts",
+		"calcExercise": "ts-node ./src/calculateExercises.ts",
+		"dev": "ts-node-dev index.ts",
+		"lint": "eslint --ext .ts ."
+	},
+	"keywords": [],
+	"author": "lindsey howard <codelikeagirl91@gmail.com>",
+	"license": "ISC",
+	"devDependencies": {
+		"@types/express": "^4.17.13",
+		"@types/node": "^14.14.31",
+		"ts-node": "^10.9.1",
+		"ts-node-dev": "^2.0.0",
+		"typescript": "^4.7.4"
+	},
+	"dependencies": {
+		"express": "^4.18.1"
+	}
+}

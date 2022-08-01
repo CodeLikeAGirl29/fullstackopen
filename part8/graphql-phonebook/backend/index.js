@@ -1,115 +1,92 @@
-const { ApolloServer, UserInputError, gql } = require("apollo-server");
-const { v1: uuid } = require("uuid");
+const { ApolloServer } = require("apollo-server-express");
+const { ApolloServerPluginDrainHttpServer } = require("apollo-server-core");
+const { makeExecutableSchema } = require("@graphql-tools/schema");
+const express = require("express");
+const http = require("http");
+const { execute, subscribe } = require("graphql");
+const { SubscriptionServer } = require("subscriptions-transport-ws");
 
-let persons = [
-	{
-		name: "Arto Hellas",
-		phone: "040-123543",
-		street: "Tapiolankatu 5 A",
-		city: "Espoo",
-		id: "3d594650-3436-11e9-bc57-8b80ba54c431",
-	},
-	{
-		name: "Matti Luukkainen",
-		phone: "040-432342",
-		street: "Malminkaari 10 A",
-		city: "Helsinki",
-		id: "3d599470-3436-11e9-bc57-8b80ba54c431",
-	},
-	{
-		name: "Venla Ruuska",
-		street: "Nallemäentie 22 C",
-		city: "Helsinki",
-		id: "3d599471-3436-11e9-bc57-8b80ba54c431",
-	},
-];
+const jwt = require("jsonwebtoken");
 
-const typeDefs = gql`
-	type Address {
-		street: String!
-		city: String!
-	}
+const JWT_SECRET = "NEED_HERE_A_SECRET_KEY";
 
-	type Person {
-		name: String!
-		phone: String
-		address: Address!
-		id: ID!
-	}
+const mongoose = require("mongoose");
 
-	enum YesNo {
-		YES
-		NO
-	}
+const User = require("./models/user");
 
-	type Query {
-		personCount: Int!
-		allPersons(phone: YesNo): [Person!]!
-		findPerson(name: String!): Person
-	}
+const typeDefs = require("./schema");
+const resolvers = require("./resolvers");
 
-	type Mutation {
-		addPerson(
-			name: String!
-			phone: String
-			street: String!
-			city: String!
-		): Person
-		editNumber(name: String!, phone: String!): Person
-	}
-`;
+const MONGODB_URI =
+	"mongodb+srv://fullstack:fullstack@cluster0.wj3aj.mongodb.net/?retryWrites=true&w=majority";
 
-const resolvers = {
-	Query: {
-		personCount: () => persons.length,
-		allPersons: (root, args) => {
-			if (!args.phone) {
-				return persons;
+	console.log('connecting to', MONGODB_URI)
+
+	mongoose
+		.connect(MONGODB_URI)
+		.then(() => {
+			console.log('connected to MongoDB')
+		})
+		.catch((error) => {
+			console.log('error connection to MongoDB:', error.message)
+		})
+	
+	const start = async () => {
+		const app = express()
+		const httpServer = http.createServer(app)
+	
+		const schema = makeExecutableSchema({ typeDefs, resolvers })
+	
+		const subscriptionServer = SubscriptionServer.create(
+			{
+				schema,
+				execute,
+				subscribe,
+			},
+			{
+				server: httpServer,
+				path: '',
 			}
-			const byPhone = (person) =>
-				args.phone === "YES" ? person.phone : !person.phone;
-			return persons.filter(byPhone);
-		},
-		findPerson: (root, args) => persons.find((p) => p.name === args.name),
-	},
-	Person: {
-		address: ({ street, city }) => {
-			return {
-				street,
-				city,
-			};
-		},
-	},
-	Mutation: {
-		addPerson: (root, args) => {
-			if (persons.find((p) => p.name === args.name)) {
-				throw new UserInputError("Name must be unique", {
-					invalidArgs: args.name,
-				});
-			}
-
-			const person = { ...args, id: uuid() };
-			persons = persons.concat(person);
-			return person;
-		},
-		editNumber: (root, args) => {
-			const person = persons.find((p) => p.name === args.name);
-			if (!person) {
-				return null;
-			}
-
-			const updatedPerson = { ...person, phone: args.phone };
-			persons = persons.map((p) => (p.name === args.name ? updatedPerson : p));
-			return updatedPerson;
-		},
-	},
-};
-
-const server = new ApolloServer({
-	typeDefs,
-	resolvers,
-});
-
-server.listen().then(({ url }) => {
-	console.log(`Server ready at ${url}`);
-});
+		)
+	
+		const server = new ApolloServer({
+			schema,
+			context: async ({ req }) => {
+				const auth = req ? req.headers.authorization : null
+				if (auth && auth.toLowerCase().startsWith('bearer ')) {
+					const decodedToken = jwt.verify(auth.substring(7), JWT_SECRET)
+					const currentUser = await User.findById(decodedToken.id).populate(
+						'friends'
+					)
+					return { currentUser }
+				}
+			},
+			plugins: [
+				ApolloServerPluginDrainHttpServer({ httpServer }),
+				{
+					async serverWillStart() {
+						return {
+							async drainServer() {
+								subscriptionServer.close()
+							},
+						}
+					},
+				},
+			],
+		})
+	
+		await server.start()
+	
+		server.applyMiddleware({
+			app,
+			path: '/',
+		})
+	
+		const PORT = 4000
+	
+		httpServer.listen(PORT, () =>
+			console.log(`Server is now running on http://localhost:${PORT}`)
+		)
+	}
+	
+	start()
